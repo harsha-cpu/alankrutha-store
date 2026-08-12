@@ -1,151 +1,249 @@
-// SECTION: Import necessary modules
-// NextResponse is used to send responses from Next.js API routes.
-// Razorpay is the official Node.js SDK for interacting with the Razorpay API.
-// crypto is a built-in Node.js module for generating secure random values.
-// createAdminClient is your database client for secure server-side operations.
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { randomBytes } from 'crypto';
 import { createAdminClient } from '@insforge/sdk';
 
-// SECTION: Define interfaces for type safety
-// This ensures the data we receive and process has a predictable structure.
-
-// Represents a single item in the incoming cart from the client.
 interface CartItem {
   productId: string;
   quantity: number;
 }
 
-// Represents the structure of a product fetched from our database.
 interface Product {
   id: string;
   price: number;
 }
 
-// SECTION: Initialize SDKs and clients
-// These clients are configured once and reused across requests.
-
-// Initialize the Razorpay client with secret keys from environment variables.
-// Using '!' (non-null assertion) assumes these variables are always set in your deployment environment.
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
-// Initialize your database admin client for secure data fetching.
-const insforge = createAdminClient({
-  baseUrl: process.env.INSFORGE_URL!,
-  apiKey: process.env.INSFORGE_API_KEY!,
-});
-
-// SECTION: Define the API route handler (POST method)
 export async function POST(request: Request) {
   try {
-    // Step 1: Parse and validate the incoming request body.
-    const { userId, items }: { userId: string; items: CartItem[] } = await request.json();
+    // Razorpay credentials are checked only when a payment is actually requested.
+    // This allows the application to build/deploy without Razorpay credentials.
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (
+      !keyId ||
+      !keySecret ||
+      keyId === 'YOUR_KEY_ID' ||
+      keySecret === 'YOUR_KEY_SECRET'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Razorpay payment is not configured yet.',
+        },
+        { status: 503 }
+      );
+    }
+
+    // Initialize Razorpay only when this API is actually called.
+    const razorpay = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret,
+    });
+
+    // Initialize the database client.
+    const insforgeUrl = process.env.INSFORGE_URL;
+    const insforgeApiKey = process.env.INSFORGE_API_KEY;
+
+    if (!insforgeUrl || !insforgeApiKey) {
+      return NextResponse.json(
+        {
+          error: 'Database configuration is missing.',
+        },
+        { status: 500 }
+      );
+    }
+
+    const insforge = createAdminClient({
+      baseUrl: insforgeUrl,
+      apiKey: insforgeApiKey,
+    });
+
+    // ---------------------------------------------------------
+    // Step 1: Parse and validate request
+    // ---------------------------------------------------------
+
+    const {
+      userId,
+      items,
+    }: {
+      userId: string;
+      items: CartItem[];
+    } = await request.json();
 
     if (!userId || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: 'Invalid request: userId and a non-empty items array are required.' },
+        {
+          error:
+            'Invalid request: userId and a non-empty items array are required.',
+        },
         { status: 400 }
       );
     }
 
-    // Step 2: Recalculate the total amount on the server to prevent client-side price manipulation.
-    // This is a critical security measure. NEVER trust the amount sent from the client.
+    // ---------------------------------------------------------
+    // Step 2: Get real product prices from the database
+    // ---------------------------------------------------------
 
-    // Extract all product IDs from the cart to fetch their prices in a single query.
     const productIds = items.map((item) => item.productId);
 
-    // Fetch the actual product details from your database.
     const { data: products, error: dbError } = await insforge.database
-      .from('products') // Assuming you have a 'products' table
+      .from('products')
       .select('id, price')
       .in('id', productIds);
 
     if (dbError) {
       console.error('Database error fetching products:', dbError);
-      throw new Error('Could not fetch product information.');
+
+      return NextResponse.json(
+        {
+          error: 'Could not fetch product information.',
+        },
+        { status: 500 }
+      );
     }
 
-    // Create a map for quick price lookups.
-    const productPriceMap = new Map(products.map((p: Product) => [p.id, p.price]));
+    if (!products || products.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'No valid products were found.',
+        },
+        { status: 400 }
+      );
+    }
 
-    // Calculate the total amount based on server-side prices.
+    // ---------------------------------------------------------
+    // Step 3: Create price lookup map
+    // ---------------------------------------------------------
+
+    const productPriceMap = new Map(
+      products.map((product: Product) => [product.id, product.price])
+    );
+
+    // ---------------------------------------------------------
+    // Step 4: Calculate total on the server
+    // ---------------------------------------------------------
+
     let serverCalculatedAmount = 0;
+
     for (const item of items) {
-      // Validate that the quantity is a positive number.
-      if (item.quantity <= 0) {
+      if (
+        !Number.isInteger(item.quantity) ||
+        item.quantity <= 0
+      ) {
         return NextResponse.json(
-          { error: `Invalid quantity for product ID: ${item.productId}` },
+          {
+            error: `Invalid quantity for product ID: ${item.productId}`,
+          },
           { status: 400 }
         );
       }
+
       const price = productPriceMap.get(item.productId);
+
       if (price === undefined) {
-        // If a product ID from the cart doesn't exist in the database, reject the order.
         return NextResponse.json(
-          { error: `Invalid product ID in cart: ${item.productId}` },
+          {
+            error: `Invalid product ID in cart: ${item.productId}`,
+          },
           { status: 400 }
         );
       }
+
       serverCalculatedAmount += price * item.quantity;
     }
 
-    // Step 3: Create a 'pending' order in your local database before creating the Razorpay order.
-    // This provides a record of the transaction attempt.
-    const { data: localOrder, error: localOrderError } = await insforge.database
-      .from('orders')
-      .insert({
-        user_id: userId,
-        total_amount: serverCalculatedAmount,
-        status: 'pending',
-        items: items, // Storing cart items for reconciliation
-        payment_method: 'razorpay',
-      })
-      .select('id')
-      .single();
-
-    if (localOrderError || !localOrder) {
-      console.error('Database error creating local order:', localOrderError);
-      throw new Error('Could not create a record of the order.');
+    if (serverCalculatedAmount <= 0) {
+      return NextResponse.json(
+        {
+          error: 'Invalid order amount.',
+        },
+        { status: 400 }
+      );
     }
 
-    // Step 4: Create the order with Razorpay using the server-calculated amount.
-    // The local database order ID is used as the 'receipt' to link the two systems.
+    // ---------------------------------------------------------
+    // Step 5: Create local pending order
+    // ---------------------------------------------------------
+
+    const { data: localOrder, error: localOrderError } =
+      await insforge.database
+        .from('orders')
+        .insert({
+          user_id: userId,
+          total_amount: serverCalculatedAmount,
+          status: 'pending',
+          items,
+          payment_method: 'razorpay',
+        })
+        .select('id')
+        .single();
+
+    if (localOrderError || !localOrder) {
+      console.error(
+        'Database error creating local order:',
+        localOrderError
+      );
+
+      return NextResponse.json(
+        {
+          error: 'Could not create a record of the order.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Step 6: Create Razorpay order
+    // ---------------------------------------------------------
+
     const options = {
-      amount: serverCalculatedAmount * 100, // Amount in the smallest currency unit (paise for INR)
+      amount: Math.round(serverCalculatedAmount * 100),
       currency: 'INR',
       receipt: `order_${localOrder.id}`,
     };
 
     const order = await razorpay.orders.create(options);
 
-    // Step 5: Update the local order with the Razorpay order ID for future reference.
+    // ---------------------------------------------------------
+    // Step 7: Save Razorpay order ID
+    // ---------------------------------------------------------
+
     const { error: updateError } = await insforge.database
       .from('orders')
-      .update({ razorpay_order_id: order.id })
+      .update({
+        razorpay_order_id: order.id,
+      })
       .eq('id', localOrder.id);
 
     if (updateError) {
-      console.error('Failed to update local order with Razorpay order ID:', updateError);
-      throw new Error('Failed to link Razorpay order to local order.');
+      console.error(
+        'Failed to update local order with Razorpay order ID:',
+        updateError
+      );
+
+      return NextResponse.json(
+        {
+          error: 'Failed to link Razorpay order to local order.',
+        },
+        { status: 500 }
+      );
     }
 
-    // Step 6: Return only the necessary, non-sensitive details to the client.
-    // Do not send the entire order object, as it may contain sensitive information.
+    // ---------------------------------------------------------
+    // Step 8: Return safe payment information
+    // ---------------------------------------------------------
+
     return NextResponse.json({
       id: order.id,
       amount: order.amount,
       currency: order.currency,
     });
-
   } catch (error) {
-    // Generic error handler for any unexpected issues.
     console.error('Razorpay order creation failed:', error);
+
     return NextResponse.json(
-      { error: 'Could not create payment order.' },
+      {
+        error: 'Could not create payment order.',
+      },
       { status: 500 }
     );
   }
