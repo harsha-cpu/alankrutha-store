@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import BrandHeader from "@/components/BrandHeader";
-import BrandFooter from "@/components/BrandFooter";
+import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoMono = Roboto_Mono({
   subsets: ["latin"],
+  variable: "--font-roboto-mono",
 });
 
 export const metadata: Metadata = {
@@ -30,13 +30,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${robotoMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-[#FFFDF8] text-[#2f1d24]">
         <div className="flex min-h-screen flex-col">
-          <BrandHeader />
-          <div className="flex-1">{children}</div>
-          <BrandFooter />
+          <Header />
+
+          <main className="flex-1">
+            {children}
+          </main>
+
+          <Footer />
         </div>
       </body>
     </html>

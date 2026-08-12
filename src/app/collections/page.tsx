@@ -1,24 +1,73 @@
-const collections = [
-  { name: "Sarees", description: "Silk and chiffon drapes with luminous detailing.", accent: "Satin drape" },
-  { name: "Cotton Suit Sets", description: "Lightweight comfort for everyday elegance.", accent: "Soft tailoring" },
-  { name: "Silk Suit Sets", description: "Opulent festive dressing with rich textures.", accent: "Festive glow" },
-  { name: "Festive Collection", description: "Celebration-ready pieces in luxe tones.", accent: "Statement finish" },
-];
+import Link from "next/link";
+import { getFeaturedProducts } from "@/lib/data";
 
-export default function CollectionsPage() {
+export default async function CollectionsPage() {
+  const products = await getFeaturedProducts();
+
   return (
     <main className="min-h-screen bg-[#FFFDF8] px-6 py-12 lg:px-8">
-      <section className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div className="rounded-[2rem] border border-[#f2e2d0] bg-white/80 p-8 shadow-[0_20px_80px_rgba(122,31,61,0.08)] backdrop-blur">
-          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#7A1F3D]">Collections</p>
-          <h1 className="mt-3 font-serif text-4xl text-[#7A1F3D] sm:text-5xl">Curated edit for every celebration and everyday moment.</h1>
+      <section className="mx-auto max-w-7xl">
+        <div className="mb-10 rounded-3xl border border-[#f2e2d0] bg-white p-8 shadow-lg">
+          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#C8A24A]">
+            New Arrivals
+          </p>
+
+          <h1 className="mt-3 text-4xl font-bold text-[#7A1F3D]">
+            Explore Our Latest Collection
+          </h1>
+
+          <p className="mt-4 text-gray-600">
+            Discover our newest sarees, suit sets and festive wear.
+          </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-2">
-          {collections.map((item) => (
-            <div key={item.name} className="rounded-[1.5rem] border border-[#f2e2d0] bg-[#FFFDF8] p-6 shadow-sm">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#C8A24A]">{item.accent}</p>
-              <h2 className="mt-3 font-serif text-2xl text-[#7A1F3D]">{item.name}</h2>
-              <p className="mt-3 text-stone-700">{item.description}</p>
+
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="overflow-hidden rounded-2xl border border-[#f2e2d0] bg-white shadow-md transition hover:-translate-y-1 hover:shadow-xl"
+            >
+              <img
+                src={product.mainImageUrl}
+                alt={product.name}
+                className="h-80 w-full object-cover"
+              />
+
+              <div className="p-5">
+                {product.badge && (
+                  <span className="rounded-full bg-[#F5EBDD] px-3 py-1 text-xs font-semibold text-[#7A1F3D]">
+                    {product.badge}
+                  </span>
+                )}
+
+                <h2 className="mt-4 text-xl font-bold text-[#2F1D24]">
+                  {product.name}
+                </h2>
+
+                <p className="mt-2 text-gray-600">
+                  {product.description}
+                </p>
+
+                <p className="mt-4 text-lg font-semibold text-[#7A1F3D]">
+                  ₹{product.price}
+                </p>
+
+                <div className="mt-6 flex gap-3">
+                  <Link
+                    href={`/product/${product.slug}`}
+                    className="rounded-lg bg-[#7A1F3D] px-5 py-2 text-white transition hover:bg-[#5E1831]"
+                  >
+                    View Product
+                  </Link>
+
+                  <Link
+                    href="/catalog"
+                    className="rounded-lg border border-[#7A1F3D] px-5 py-2 text-[#7A1F3D] transition hover:bg-[#F5EBDD]"
+                  >
+                    Shop More
+                  </Link>
+                </div>
+              </div>
             </div>
           ))}
         </div>
