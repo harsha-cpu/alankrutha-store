@@ -13,14 +13,13 @@ import { ProductActions } from "@/lib/ProductActions";
 import { RelatedProducts } from "@/lib/RelatedProducts";
 
 type ProductPageProps = {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 };
 
-export async function generateMetadata({
-  params,
-}: ProductPageProps): Promise<Metadata> {
+export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
+  const params = await props.params;
   const product = await getProductBySlug(params.slug);
 
   if (!product) {
@@ -58,9 +57,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({
-  params,
-}: ProductPageProps) {
+export default async function ProductPage(props: ProductPageProps) {
+  const params = await props.params;
   const product = await getProductBySlug(params.slug);
 
   if (!product) {

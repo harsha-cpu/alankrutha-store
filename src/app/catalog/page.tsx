@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import CartActions from "@/components/CartActions";
-import { getActiveProducts, type StorefrontProduct } from "@/lib/storefront-data";
+import {
+  getActiveProducts,
+  type StorefrontProduct,
+} from "@/lib/storefront-data";
+
+// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false;
 
 function formatCurrency(value: number, currency: string) {
   try {
@@ -20,6 +28,7 @@ function getBadges(product: StorefrontProduct) {
   if (product.isNewArrival) badges.push("New Arrival");
   if (product.isBestseller) badges.push("Best Seller");
   if (product.isFeatured) badges.push("Featured");
+
   if (product.discountPercentage > 0) {
     badges.push(`${product.discountPercentage}% off`);
   }
@@ -27,7 +36,9 @@ function getBadges(product: StorefrontProduct) {
   return badges.length ? badges : [product.category];
 }
 
-function getStockClasses(availability: StorefrontProduct["availability"]) {
+function getStockClasses(
+  availability: StorefrontProduct["availability"]
+) {
   if (availability === "Out of Stock") {
     return "bg-red-50 text-red-700";
   }
@@ -40,6 +51,11 @@ function getStockClasses(availability: StorefrontProduct["availability"]) {
 }
 
 export default async function CatalogPage() {
+  // Next.js 16 / Cache Components:
+  // The catalog uses live database data, so render this route
+  // at request time instead of prerendering it.
+  await connection();
+
   const products = await getActiveProducts();
 
   return (
@@ -132,7 +148,10 @@ export default async function CatalogPage() {
 
                   <div className="mt-4 flex items-end gap-2">
                     <span className="font-semibold text-[#7A1F3D]">
-                      {formatCurrency(product.price, product.currency)}
+                      {formatCurrency(
+                        product.price,
+                        product.currency
+                      )}
                     </span>
 
                     {compareAtPrice && (
@@ -176,8 +195,8 @@ export default async function CatalogPage() {
             </p>
 
             <p className="mt-2 text-sm text-stone-600">
-              Products marked active in the admin dashboard will appear here
-              automatically.
+              Products marked active in the admin dashboard will
+              appear here automatically.
             </p>
           </div>
         )}
