@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alankrutha
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/harsha-cpu/alankrutha-store.git
+    targetRevision: main
+    path: helm/alankrutha
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: alankrutha
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
