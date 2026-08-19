@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alankrutha
+  namespace: alankrutha
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alankrutha
+  template:
+    metadata:
+      labels:
+        app: alankrutha
+    spec:
+      containers:
+        - name: alankrutha
+          image: host.docker.internal:5100/alankrutha:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
