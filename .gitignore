@@ -51,3 +51,7 @@ backup-old-files/
 *.tfvars.json
 crash.log
 crash.*.log
+
+# Security scan / Docker artifacts
+trivy-result*.json
+*.tar
