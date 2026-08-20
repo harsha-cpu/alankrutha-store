@@ -2,11 +2,21 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "alankrutha.fullname" . }}
-  namespace: {{ .Release.Namespace }}
 spec:
   ingressClassName: nginx
   rules:
     - host: alankrutha.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "alankrutha.fullname" . }}
+                port:
+                  number: 3000
+
+    - host: chen-photographers-situated-vehicle.trycloudflare.com
       http:
         paths:
           - path: /
