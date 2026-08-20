@@ -8,37 +8,48 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-
 jobs:
-  build-test:
+  ci:
+    name: Build and Security Scan
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+    permissions:
+      contents: read
 
+    steps:
+      # 1. Checkout source code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
+      # 4. Build Next.js application
       - name: Build application
         run: npm run build
 
+      # 5. Build Docker image
       - name: Build Docker image
         run: docker build -t alankrutha:${{ github.sha }} .
 
+      # 6. Install Trivy
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.3
+
+      # 7. Scan Docker image
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: alankrutha:${{ github.sha }}
-          format: table
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: 1
+        run: |
+          trivy image \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --no-progress \
+            alankrutha:${{ github.sha }}
