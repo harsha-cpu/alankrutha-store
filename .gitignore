@@ -55,3 +55,5 @@ crash.*.log
 # Security scan / Docker artifacts
 trivy-result*.json
 *.tar
+k3s-hostconfig.json
+registries.yaml
