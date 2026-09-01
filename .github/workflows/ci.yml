@@ -8,13 +8,18 @@ on:
     branches:
       - main
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   ci:
-    name: Build and Security Scan
+    name: Build, Scan and Push
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
+      packages: write
 
     steps:
       # 1. Checkout source code
@@ -48,17 +53,30 @@ jobs:
       - name: Build application
         run: npm run build
 
-      # 7. Build Docker image
-      - name: Build Docker image
-        run: docker build -t alankrutha:${{ github.sha }} .
+      # 7. Login to GHCR
+      - name: Login to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 8. Install Trivy
+      # 8. Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      # 9. Install Trivy
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
           version: v0.72.0
 
-      # 9. Scan Docker image
+      # 10. Scan Docker image
       - name: Trivy vulnerability scan
         run: |
           trivy image \
@@ -66,4 +84,11 @@ jobs:
             --severity HIGH,CRITICAL \
             --exit-code 1 \
             --no-progress \
-            alankrutha:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # 11. Push Docker image
+      - name: Push Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
