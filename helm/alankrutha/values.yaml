@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: ghcr.io/harsha-cpu/alankrutha-store
-  tag: latest
+  tag: 833e4c75d42562fed23b415ca904e22c31d04ae2
   pullPolicy: Always
 
 service:
