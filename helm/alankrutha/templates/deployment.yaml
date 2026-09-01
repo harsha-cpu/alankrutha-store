@@ -18,6 +18,14 @@ spec:
         - name: alankrutha
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          env:
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "alankrutha.fullname" . }}-secret
+                  key: NEXTAUTH_SECRET
+
           ports:
             - name: http
               containerPort: 3000
