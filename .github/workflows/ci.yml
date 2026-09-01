@@ -20,37 +20,45 @@ jobs:
       # 1. Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2. Setup Node.js
+      # 2. Secret scanning
+      - name: Secret scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
+
+      # 3. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      # 3. Install dependencies
+      # 4. Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4. Dependency vulnerability scan
+      # 5. Dependency vulnerability scan
       - name: Dependency vulnerability scan
         run: npm audit --audit-level=high
 
-      # 5. Build Next.js application
+      # 6. Build Next.js application
       - name: Build application
         run: npm run build
 
-      # 6. Build Docker image
+      # 7. Build Docker image
       - name: Build Docker image
         run: docker build -t alankrutha:${{ github.sha }} .
 
-      # 7. Install Trivy
+      # 8. Install Trivy
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
           version: v0.72.0
 
-      # 8. Scan Docker image
+      # 9. Scan Docker image
       - name: Trivy vulnerability scan
         run: |
           trivy image \
