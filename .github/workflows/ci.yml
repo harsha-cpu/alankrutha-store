@@ -32,21 +32,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Build Next.js application
+      # 4. Dependency vulnerability scan
+      - name: Dependency vulnerability scan
+        run: npm audit --audit-level=high
+
+      # 5. Build Next.js application
       - name: Build application
         run: npm run build
 
-      # 5. Build Docker image
+      # 6. Build Docker image
       - name: Build Docker image
         run: docker build -t alankrutha:${{ github.sha }} .
 
-      # 6. Install Trivy
+      # 7. Install Trivy
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
           version: v0.72.0
 
-      # 7. Scan Docker image
+      # 8. Scan Docker image
       - name: Trivy vulnerability scan
         run: |
           trivy image \
