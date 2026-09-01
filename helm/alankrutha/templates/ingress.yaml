@@ -16,7 +16,7 @@ spec:
                 port:
                   number: 3000
 
-    - host: chen-photographers-situated-vehicle.trycloudflare.com
+    - host: appreciated-countries-illinois-nano.trycloudflare.com
       http:
         paths:
           - path: /
