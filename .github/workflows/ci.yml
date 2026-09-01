@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -92,3 +92,16 @@ jobs:
         run: |
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        
+      # 12. Update Helm image tag
+      - name: Update Helm image tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${{ github.sha }}/" helm/alankrutha/values.yaml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add helm/alankrutha/values.yaml
+          git commit -m "Update image tag to ${{ github.sha }}"
+          git push  
